@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>七宗罪VS七美德 · 互动原型 · 12卡合集</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="runnerBar" style="display:none">
+    <span class="back" onclick="Runner.showSelector()">‹ 返回选卡</span>
+    <span id="runnerPos"></span>
+  </div>
+
+  <!-- 卡片舞台（引擎渲染区） -->
+  <div id="stage" style="display:none">
+    <div id="scene"></div>
+    <div id="shots"></div>
+    <div id="qteWrap">
+      <svg id="qteRing" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="45" fill="none" stroke="#333" stroke-width="6"/>
+        <circle cx="50" cy="50" r="45" fill="none" stroke="#c9a24b" stroke-width="6"
+          stroke-dasharray="283" stroke-dashoffset="0" stroke-linecap="round" id="ringCircle"/>
+      </svg>
+      <div class="qte-text" id="qteLabel">8s</div>
+    </div>
+    <div id="choices">
+      <div class="option option-l" id="optL">
+        <span class="side-tag">L</span>
+        <span class="opt-text"></span>
+        <span class="opt-cons" id="conL"></span>
+      </div>
+      <div class="option option-r" id="optR">
+        <span class="side-tag">R</span>
+        <span class="opt-text"></span>
+        <span class="opt-cons" id="conR"></span>
+      </div>
+    </div>
+    <div class="result" id="result"></div>
+  </div>
+
+  <div id="silhouettes"></div>
+  <div id="axes" style="display:none">
+    <div class="axis"><span class="axis-name">野心</span><span class="axis-track"><span class="axis-fill" id="bar-ambition"></span></span><span class="axis-val" id="val-ambition">50</span></div>
+    <div class="axis"><span class="axis-name">占有</span><span class="axis-track"><span class="axis-fill" id="bar-possession"></span></span><span class="axis-val" id="val-possession">50</span></div>
+    <div class="axis"><span class="axis-name">冲动</span><span class="axis-track"><span class="axis-fill" id="bar-impulse"></span></span><span class="axis-val" id="val-impulse">50</span></div>
+    <div class="axis"><span class="axis-name">克制</span><span class="axis-track"><span class="axis-fill" id="bar-devotion"></span></span><span class="axis-val" id="val-devotion">50</span></div>
+  </div>
+  <button id="nextBtn">继续 →</button>
+  <div id="debug"></div>
+</div>
+
+<!-- 选卡面板 -->
+<div id="cardSelector">
+  <h2>七宗罪 VS 七美德 · 互动原型</h2>
+  <p style="font-size:13px;color:#8b8f9a;line-height:1.6;margin:0 0 16px">
+    数据驱动可交互原型，共 12 张事件卡。每张卡：分镜播放 → QTE/选择 → 即时后果 → 数值反馈。<br>
+    权重口径 0–100（与 FRS 对齐）。点击右上角「…」可重置状态。
+  </p>
+  <div class="card-grid" id="cardGrid"></div>
+  <div style="margin-top:20px;font-size:12px;color:#666">
+    <p><b>测试操作：</b>左右滑动 / 点击两侧 = 选择；QTE 限时内必须选，超时默认记 R。</p>
+    <p><b>当前状态：</b><span id="selState"></span></p>
+    <button onclick="Runner.reset()" style="margin-top:8px;padding:6px 14px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer">重置全部状态</button>
+    <button onclick="Runner.runAll()" style="margin-top:8px;margin-left:8px;padding:6px 14px;background:var(--accent);color:#1a1a1a;border:none;border-radius:6px;cursor:pointer">连续跑完 12 卡 → 结局</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="engine.js"></script>
+<script src="cards_data.js"></script>
+<script>
+/* ============ Runner：卡片路由 + 连续流程 + 结局判定 ============ */
+const Runner = (function () {
+  const cards = window.CARDS; // 12 张
+  let currentIndex = 0;
+  let autoRun = false;
+
+  function toast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg; t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 1600);
+  }
+
+  function showSelector() {
+    document.getElementById("cardSelector").style.display = "block";
+    document.getElementById("stage").style.display = "none";
+    document.getElementById("axes").style.display = "none";
+    document.getElementById("runnerBar").style.display = "none";
+    refreshSelectorState();
+  }
+  function refreshSelectorState() {
+    const s = PrototypeEngine.state;
+    document.getElementById("selState").textContent =
+      `axes={野心:${s.axes.ambition}, 占有:${s.axes.possession}, 冲动:${s.axes.impulse}, 克制:${s.axes.devotion}} blood=${s.blood} secrets=${s.secrets} betrayed=${s.betrayed}`;
+  }
+
+  function buildSelector() {
+    const grid = document.getElementById("cardGrid");
+    cards.forEach((c, i) => {
+      const div = document.createElement("div");
+      div.className = "card-tile";
+      div.innerHTML = `
+        <div class="t-id">卡 ${c.cardId}</div>
+        <div class="t-ch">${c.chapter} · ${c.perspective}</div>
+        <div class="t-type ${c.type === "qte" ? "t-qte" : "t-normal"}">${c.type === "qte" ? "QTE " + (c.qteMs/1000) + "s" : "剧情"}</div>
+      `;
+      div.onclick = () => loadCard(i);
+      grid.appendChild(div);
+    });
+  }
+
+  function loadCard(index) {
+    currentIndex = index;
+    const card = cards[index];
+    document.getElementById("cardSelector").style.display = "none";
+    document.getElementById("stage").style.display = "flex";
+    document.getElementById("axes").style.display = "block";
+    document.getElementById("runnerBar").style.display = "flex";
+    document.getElementById("runnerPos").textContent = `卡 ${card.cardId} / 12　${card.chapter} · ${card.typeLabel}`;
+
+    PrototypeEngine.init(card);
+
+    // 覆写 onAdvance：连续流程自动进下一卡，否则回选卡
+    window.onAdvance = function () {
+      saveSession();
+      const next = card.next || {};
+      if (next.force && next.target === "ending") { showEnding(); return; }
+      if (autoRun) {
+        if (currentIndex + 1 < cards.length) {
+          setTimeout(() => loadCard(currentIndex + 1), 700);
+        } else { showEnding(); }
+      } else {
+        toast("已记录 → 返回选卡");
+        setTimeout(showSelector, 900);
+      }
+    };
+  }
+
+  function saveSession() { localStorage.setItem("proto_state", JSON.stringify(PrototypeEngine.state)); }
+  function loadSession() {
+    const s = localStorage.getItem("proto_state");
+    if (s) { try { PrototypeEngine.setState(JSON.parse(s)); } catch(e){} }
+  }
+
+  // ---------- 结局判定（对应 FRS 第五章，简化版 3 层） ----------
+  function judge() {
+    const s = PrototypeEngine.state;
+    const flags = s.flags;
+    const a = s.axes;
+
+    // 第一层：特殊/覆盖结局
+    if (flags.includes("puppet")) return { name: "傀儡", desc: "你许愿要了权力，却发现死的是你自己——你成了权力的容器。", tag: "覆盖结局" };
+    if (flags.includes("illusion")) return { name: "最后的幻觉", desc: "你走出门看到阳光，才发现你早就死在第三章。这只是临终的幻觉。", tag: "元叙事结局" };
+    if (flags.includes("saint") && a.devotion >= 60) return { name: "圣徒", desc: "你化作灰烬，灰烬里开出一朵花。", tag: "超然结局" };
+
+    // 第二层：主结局（按优先级）
+    if (flags.includes("mad_king") || flags.includes("berserk") || a.impulse >= 70) {
+      return { name: "疯王", desc: "你的王冠是用别人的骨头做的。所有人都怕你，包括你自己。", tag: "冲动过载" };
+    }
+    if (a.possession >= 60 && s.blood <= 3) {
+      return { name: "孤王的加冕", desc: "你赢了，但赢的是一座空城。所有人都死了，或者走了。", tag: "占有过载 + 孤立" };
+    }
+    if (flags.includes("coward") || (flags.includes("abandon_duty") && a.possession >= 55)) {
+      return { name: "活下来的懦夫", desc: "你每天都在后悔，但每天都还在呼吸。", tag: "自私结局" };
+    }
+    if (a.devotion >= 60 && s.blood >= 4) {
+      return { name: "殉道者", desc: "你死了，但他们踩着你的尸体走向了光明。", tag: "克制过载" };
+    }
+    if (flags.includes("hypocrisy") || (s.secrets >= 2 && a.possession >= 50)) {
+      return { name: "伪善者", desc: "你连善良都是武器。没人再相信你的任何一句话。", tag: "秘密过载" };
+    }
+    if (flags.includes("abandon_duty") || flags.includes("betray") || s.betrayed >= 2) {
+      return { name: "弃义者", desc: "你谁都不信，最后谁都离你而去。", tag: "关系崩解" };
+    }
+    // 默认
+    return { name: "幸存者", desc: "你不是英雄也不是反派，只是活了下来。故事还在继续。", tag: "普通结局" };
+  }
+
+  function showEnding() {
+    const e = judge();
+    document.getElementById("stage").style.display = "none";
+    document.getElementById("axes").style.display = "none";
+    document.getElementById("runnerBar").style.display = "none";
+    // 若已有 ending 先移除
+    const old = document.getElementById("ending");
+    if (old) old.remove();
+    const app = document.getElementById("app");
+    app.insertAdjacentHTML("beforeend", `
+      <div id="ending">
+        <div class="tag">${e.tag}</div>
+        <div class="name">${e.name}</div>
+        <div class="desc">${e.desc}</div>
+        <div class="meta">
+          <div>最终状态：axes=${JSON.stringify(PrototypeEngine.state.axes)}</div>
+          <div>blood=${PrototypeEngine.state.blood}　flags=${JSON.stringify(PrototypeEngine.state.flags)}</div>
+          <div>选择记录：${JSON.stringify(PrototypeEngine.state.history.map(h => h.cardId + (h.side==='L'?'←L':'→R') + (h.timedOut?'⏱':'')))}</div>
+        </div>
+        <button onclick="Runner.restart()" style="margin-top:20px;padding:12px 32px;background:var(--accent);color:#1a1a1a;border:none;border-radius:24px;font-weight:600;cursor:pointer">再来一次</button>
+      </div>
+    `);
+  }
+
+  function runAll() { autoRun = true; loadCard(0); }
+  function restart() { autoRun = false; const e = document.getElementById("ending"); if (e) e.remove(); reset(); showSelector(); }
+  function reset() {
+    localStorage.removeItem("proto_state");
+    PrototypeEngine.setState({ axes:{ambition:50,possession:50,impulse:50,devotion:50}, blood:7, secrets:0, betrayed:0, devotionCounter:0, flags:[], history:[] });
+  }
+
+  return { init(){ loadSession(); buildSelector(); showSelector(); },
+    showSelector, loadCard, runAll, restart, reset,
+    showEnding, judge,
+  };
+})();
+
+window.onload = () => Runner.init();
+</script>
+</body>
+</html>

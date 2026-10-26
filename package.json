@@ -1,0 +1,22 @@
+{
+  "name": "sin-virtue-game",
+  "version": "1.0.0",
+  "description": "七宗罪VS七美德 · 互动叙事测试原型（前端引擎 + Node/Express 后端 + 12卡数据）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "syntax": "for f in $(ls *.js); do node -c \"$f\"; done",
+    "test": "node test_all.js",
+    "test:engine": "node test_engine.js",
+    "test:runner": "node test_runner.js",
+    "test:api": "node test_api.js",
+    "test:client": "node test_api_client.js",
+    "gen:cards": "node gen_cards.js",
+    "gen:doc": "node gen_script_doc.js"
+  },
+  "dependencies": {
+    "docx": "^9.0.0",
+    "express": "^4.18.2",
+    "jsdom": "^30.0.1"
+  }
+}
