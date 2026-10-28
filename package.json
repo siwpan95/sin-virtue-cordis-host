@@ -1,14 +1,19 @@
 {
   "name": "sin-virtue-cordis-host",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "private": false,
   "type": "module",
+  "description": "七宗罪 VS 七美德 · 互动叙事测试原型（cordis 插件宿主 = 主仓；合并自 sin-virtue-game）",
   "scripts": {
     "start": "node index.js",
-    "demo": "node index.js"
+    "demo": "node index.js",
+    "test": "node playthrough.js",
+    "smoke": "node smoke.js",
+    "gen:doc": "node docgen/gen_script_doc.js"
   },
   "dependencies": {
     "cordis": "4.0.0-rc.9",
-    "cosmokit": "^1.8.1"
+    "cosmokit": "^1.8.1",
+    "docx": "^9.0.0"
   }
 }

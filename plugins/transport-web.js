@@ -33,6 +33,7 @@ export const web = {
           const cards = g.order().map((id) => {
             const c = g.cards.get(id)
             return { id, chapter: c.chapter, scene: c.scene, isQte: !!c.isQte, qteMs: c.qteMs || 0,
+                     perspective: c.perspective || '', typeLabel: c.typeLabel || '',
                      L: c.L.text[0], R: c.R.text[0] }
           })
           return send(res, 200, { cards })
