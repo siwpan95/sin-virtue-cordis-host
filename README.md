@@ -5,7 +5,7 @@
 > 本仓在 siwpan 投资组合（D:/projects/repos，共 133 仓）中定级为 **② 保留**，领域 **原型/学习/杂项**。
 > **角色**：架构原型。
 > **维护策略**：② 旗舰 / 枢纽仓库打磨保留，作为能力展示或收敛点；② 保留类仓库低优先维持、不主动扩张。
-> 投资组合统一分级索引：`D:/projects/repos/PORTFOLIO_TIERING.md`。
+> 投资组合统一分级索引（多机可查）：[组合分级决策索引 · allin 事实源](https://gitee.com/siwpan/allin/blob/master/docs/事实源/组合分级决策索引.md)。
 
 本目录是《七宗罪 VS 七美德》互动叙事测试原型的**主仓**，用
 [Cordis](https://github.com/cordiverse/cordis)（`@deepseek-ai/cordis@4.x`）实现
